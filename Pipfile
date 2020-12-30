@@ -6,6 +6,7 @@ name = "pypi"
 [packages]
 jupyterlab = "*"
 SimpleITK = "*"
+numpy = "*"
 
 [dev-packages]
 pytest = "*"
