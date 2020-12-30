@@ -1,11 +1,27 @@
 #!/bin/bash
 
+gpu_cpu=$1
+
 # install tools 
 pip install pipenv
 sudo apt-get install p7zip p7zip-full p7zip-rar -y
 
 # Setup python environment
 pipenv install
+if [ gpu_cpu = 'gpu' ];
+then
+    pipenv run pip install \
+        torch==1.7.1+cu110 \
+        torchvision==0.8.2+cu110 \
+        torchaudio===0.7.2 \
+        -f https://download.pytorch.org/whl/torch_stable.html
+else
+    pipenv run pip install \
+        torch==1.7.1+cpu \
+        torchvision==0.8.2+cpu \
+        torchaudio==0.7.2 \
+        -f https://download.pytorch.org/whl/torch_stable.html
+fi
 
 # Download data
 mkdir -p data-unversioned/

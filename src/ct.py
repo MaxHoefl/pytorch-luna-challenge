@@ -79,8 +79,10 @@ class Ct(object):
                 self.rotation_matrix)
         slice_list = []
         for axis, coordinate in enumerate(point_irc):
-            start_idx = int(np.round(coordinate - crop_width[axis] / 2))
-            end_idx = int(start_idx + crop_width[axis])
+            start_idx = np.maximum(0, 
+                    int(np.round(coordinate - crop_width[axis] / 2)))
+            end_idx = np.minimum(self.ct_arr.shape[axis], 
+                    int(start_idx + crop_width[axis]))
             slice_list.append(slice(start_idx, end_idx))
         ct_crop = self.ct_arr[tuple(slice_list)]
         return ct_crop, point_irc

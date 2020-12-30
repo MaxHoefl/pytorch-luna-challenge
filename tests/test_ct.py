@@ -52,6 +52,15 @@ def test_cropCtAtXYZLocation(setup):
     assert crop_center == point_irc
     assert ct_crop.shape == tuple(crop_width)
 
+def test_cropCtAtXYZLocation_atedge(setup):
+    ctscan = Ct(series_uid='ct1', data_dir=setup.data_dir)
+    point_irc = IrcTuple(0, 0, 0)
+    point_xyz = Ct.irc2xyz(point_irc, ctscan.origin_xyz, 
+            ctscan.voxel_size, ctscan.rotation_matrix)
+    crop_width = [100000, 100000, 10000]
+    ct_crop, crop_center = ctscan.cropCtAtXYZLocation(point_xyz, crop_width)
+    assert np.all(ct_crop == ctscan.ct_arr)
+
 
     
 
