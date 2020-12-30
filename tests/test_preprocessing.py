@@ -41,7 +41,6 @@ class Setup():
 
 @pytest.fixture()
 def setup(tmpdir):
-    print("Setting up...")
     return Setup(tmpdir)        
 
 

@@ -5,6 +5,10 @@ import SimpleITK as sitk
 from collections import namedtuple
 
 
+IrcTuple = namedtuple('IrcTuple', ['idx', 'row', 'col'])
+XyzTuple = namedtuple('XyzTuple', ['x', 'y', 'z'])
+
+
 class Ct(object):
     def __init__(self, series_uid, data_dir):
         self.series_uid = series_uid
@@ -20,49 +24,79 @@ class Ct(object):
         ct_arr = np.array(sitk.GetArrayFromImage(ct_mhd), dtype=np.float32)
         ct_arr.clip(-1000, 1000, ct_arr) # min/max Hounsfield unit
         self.ct_arr = ct_arr
+        self.origin_xyz = XyzTuple(*ct_mhd.GetOrigin())
+        self.voxel_size = XyzTuple(*ct_mhd.GetSpacing())
+        self.rotation_matrix = np.array(ct_mhd.GetDirection()).reshape(3, 3)
 
+    @staticmethod
+    def irc2xyz(coord_irc: IrcTuple, 
+            origin_xyz: XyzTuple, 
+            voxel_size: XyzTuple, 
+            rotation_matrix: np.array):
+        """
+        Converts an array of voxels in I(ndex) x R(ows) x C(olumns) format)
+        to XYZ coordinates in millimeters using the following steps
+        1. Flip from IRC to CRI (as X direction goes across horizontall <-> columns,
+            Y direction goes vertically <-> rows, Z direction <-> index
+        2. Scale voxel indices with size of voxel in millimeters
+        3. Matrix multiply with rotation matrix 
+        4. Add offset from origin
+        """
+        cri_arr = np.array(coord_irc)[::-1]
+        origin_xyz = np.array(origin_xyz)
+        voxel_size = np.array(voxel_size)
+        coord_xyz = (rotation_matrix @ (cri_arr * voxel_size)) + origin_xyz
+        return XyzTuple(*coord_xyz)
 
-IrcTuple = namedtuple('IrcTuple', ['idx', 'row', 'col'])
-XyzTuple = namedtuple('XyzTuple', ['x', 'y', 'z'])
+    @staticmethod
+    def xyz2irc(coord_xyz: XyzTuple,
+            origin_xyz: XyzTuple,
+            voxel_size: XyzTuple,
+            rotation_matrix: np.array):
+        """
+        Performs inverse operation of `irc2xyz`
+        """
+        origin_xyz = np.array(origin_xyz)
+        voxel_size = np.array(voxel_size)
+        coord_xyz = np.array(coord_xyz)
+        cri_arr = ((coord_xyz - origin_xyz) @ np.linalg.inv(rotation_matrix)) / voxel_size
+        cri_arr = np.round(cri_arr)
+        return IrcTuple(int(cri_arr[2]), int(cri_arr[1]), int(cri_arr[0]))
 
-
-def irc2xyz(coord_irc: IrcTuple, 
-        origin_xyz: tuple, 
-        voxel_size: tuple, 
-        rotation_matrix: np.array):
-    """
-    Converts an array of voxels in I(ndex) x R(ows) x C(olumns) format)
-    to XYZ coordinates in millimeters using the following steps
-    1. Flip from IRC to CRI (as X direction goes across horizontall <-> columns,
-        Y direction goes vertically <-> rows, Z direction <-> index
-    2. Scale voxel indices with size of voxel in millimeters
-    3. Matrix multiply with rotation matrix 
-    4. Add offset from origin
-    """
-    cri_arr = np.array(coord_irc)[::-1]
-    origin_xyz = np.array(origin_xyz)
-    voxel_size = np.array(voxel_size)
-    coord_xyz = (rotation_matrix @ (cri_arr * voxel_size)) + origin_xyz
-    return XyzTuple(*coord_xyz)
-
-
-def xyz2irc(coord_xyz: XyzTuple,
-        origin_xyz: tuple,
-        voxel_size: tuple,
-        rotation_matrix: np.array):
-    """
-    Performs inverse operation of `irc2xyz`
-    """
-    origin_xyz = np.array(origin_xyz)
-    voxel_size = np.array(voxel_size)
-    coord_xyz = np.array(coord_xyz)
-    cri_arr = ((coord_xyz - origin_xyz) @ np.linalg.inv(rotation_matrix)) / voxel_size
-    cri_arr = np.round(cri_arr)
-    return IrcTuple(int(cri_arr[2]), int(cri_arr[1]), int(cri_arr[0]))
+    def cropCtAtXYZLocation(self, point_xyz, crop_width):
+        """
+        Crop the CT voxel array around a point (given in XYZ coordinates as
+        nodules were annotated in XYZ coordinates) and yield a an area around 
+        that point of width `crop_width`. The result will be still in IRC
+        coordinates (i.e. voxel)
+        The `crop_width` is an `IrcTuple` so the resulting area from the CT
+        does not have to be cubic.
+        """
+        point_irc = self.xyz2irc(
+                point_xyz, 
+                self.origin_xyz, 
+                self.voxel_size, 
+                self.rotation_matrix)
+        slice_list = []
+        for axis, coordinate in enumerate(point_irc):
+            start_idx = int(np.round(coordinate - crop_width[axis] / 2))
+            end_idx = int(start_idx + crop_width[axis])
+            slice_list.append(slice(start_idx, end_idx))
+        ct_crop = self.ct_arr[tuple(slice_list)]
+        return ct_crop, point_irc
 
 
 if __name__ == '__main__':
     c = Ct('1.3.6.1.4.1.14519.5.2.1.6279.6001.105756658031515062000744821260', 
             '/home/ubuntu/workspace/pytorch-luna-challenge/data-unversioned/')
     print(c.ct_arr.shape)
+    coord_irc = IrcTuple(1, 2, 3)
+    origin_xyz = XyzTuple(1, 0, -1)
+    voxel_size = XyzTuple(1, 1, 1.5)
+    rotation_matrix = np.array([
+        [1, 0, 0],
+        [0, 0, 1],
+        [0, 1, 0]
+    ])
+    coord_xyz = Ct.irc2xyz(coord_irc, origin_xyz, voxel_size, rotation_matrix)
 
