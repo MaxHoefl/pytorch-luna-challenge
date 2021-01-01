@@ -5,10 +5,11 @@ Tackling LUng Nodule Analysis with PyTorch. Following the book
 
 ## Setup
 
-If running on machine with GPU run `$ ./setup.sh gpu`, else run `$ ./setup.sh`
+If running on machine with CUDA enabled GPU run `$ ./setup.sh gpu`, else run `$ ./setup.sh`.
+Currently configured and tested only for CUDA 11.
 
 ## Tests
 
-Run `$ pytest tests/`
+Run `$ pytest .`
 
 
