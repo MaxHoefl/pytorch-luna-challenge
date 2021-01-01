@@ -19,7 +19,7 @@ class LunaDataset(Dataset):
         ct_scan = Ct(candidate.series_uid, self.data_dir)
         ct_crop, crop_center = \
                 ct_scan.cropCtAtXYZLocation(candidate.center_xyz, crop_width)
-        ct_crop = torch.from_numy(ct_crop)
+        ct_crop = torch.from_numpy(ct_crop)
         ct_crop = ct_crop.to(torch.float32)
         ct_crop = ct_crop.unsqueeze(0)
         

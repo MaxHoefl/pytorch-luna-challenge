@@ -3,30 +3,12 @@ import zipfile
 from ct import Ct, IrcTuple, XyzTuple
 import os
 import numpy as np
-
-TEST_DIR = os.path.dirname(__file__)
-
-
-class Setup(object):
-    def __init__(self, tmpdir):
-      testdata_zip = os.path.join(TEST_DIR, 'testdata', 'testdata.zip')
-      tmp_dir = tmpdir.mkdir('testdata')
-      with zipfile.ZipFile(testdata_zip, 'r') as zipf:
-          zipf.extractall(tmp_dir)
-      for dirs, _, files in os.walk(str(tmp_dir)):
-          for f in files:
-              os.chmod(os.path.join(dirs, f), 0o777)
-      self.data_dir = str(tmpdir)
-
-
-@pytest.fixture()
-def setup(tmpdir):
-    return Setup(tmpdir)
+from conftest import luna_setup as setup 
 
 
 def test_Ct(setup):
     ctscan = Ct(series_uid='ct1', data_dir=setup.data_dir)
-    assert ctscan.ct_arr.shape == (140, 512, 512)
+    assert ctscan.ct_arr.shape == (119, 512, 512)
 
 
 def test_irc2xyz_xyz2irc(setup):

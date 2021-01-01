@@ -5,8 +5,7 @@ Tackling LUng Nodule Analysis with PyTorch. Following the book
 
 ## Setup
 
-Run `$ ./setup.sh` 
-
+If running on machine with GPU run `$ ./setup.sh gpu`, else run `$ ./setup.sh`
 
 ## Tests
 

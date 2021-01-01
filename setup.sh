@@ -7,7 +7,8 @@ pip install pipenv
 sudo apt-get install p7zip p7zip-full p7zip-rar -y
 
 # Setup python environment
-pipenv install
+pip uninstall -y pytest
+pipenv install -d
 if [ gpu_cpu = 'gpu' ];
 then
     pipenv run pip install \

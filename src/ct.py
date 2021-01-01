@@ -61,6 +61,7 @@ class Ct(object):
         coord_xyz = np.array(coord_xyz)
         cri_arr = ((coord_xyz - origin_xyz) @ np.linalg.inv(rotation_matrix)) / voxel_size
         cri_arr = np.round(cri_arr)
+        assert np.all(cri_arr >= 0), f'Negative IRC index in {cri_arr}'
         return IrcTuple(int(cri_arr[2]), int(cri_arr[1]), int(cri_arr[0]))
 
     def cropCtAtXYZLocation(self, point_xyz, crop_width):
