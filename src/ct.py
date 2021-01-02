@@ -3,10 +3,12 @@ import glob
 import numpy as np
 import SimpleITK as sitk
 from collections import namedtuple
-
+import functools
+from diskcache import Cache
 
 IrcTuple = namedtuple('IrcTuple', ['idx', 'row', 'col'])
 XyzTuple = namedtuple('XyzTuple', ['x', 'y', 'z'])
+raw_cache = Cache()
 
 
 class Ct(object):
@@ -87,6 +89,17 @@ class Ct(object):
             slice_list.append(slice(start_idx, end_idx))
         ct_crop = self.ct_arr[tuple(slice_list)]
         return ct_crop, point_irc
+
+
+@functools.lru_cache(1, typed=True)
+def getCt(series_uid, data_dir):
+    return Ct(series_uid, data_dir)
+
+
+@raw_cache.memoize(typed=True)
+def getCtCrop(series_uid, data_dir, center_xyz, crop_width):
+    ct = getCt(series_uid, data_dir)
+    return ct.cropCtAtXYZLocation(center_xyz, crop_width)
 
 
 if __name__ == '__main__':

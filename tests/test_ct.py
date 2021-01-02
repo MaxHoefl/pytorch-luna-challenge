@@ -1,6 +1,6 @@
 import pytest
 import zipfile
-from ct import Ct, IrcTuple, XyzTuple
+from ct import Ct, IrcTuple, XyzTuple, getCt, getCtCrop
 import os
 import numpy as np
 from conftest import luna_setup as setup 
@@ -44,6 +44,13 @@ def test_cropCtAtXYZLocation_atedge(setup):
     assert np.all(ct_crop == ctscan.ct_arr)
 
 
+def test_getCt(setup):
+    getCt(series_uid='ct1', data_dir=setup.data_dir)
+    getCt(series_uid='ct1', data_dir=setup.data_dir)
+    getCt(series_uid='ct1', data_dir=setup.data_dir)
+    ci = getCt.cache_info()
+    assert ci.hits == 2
+     
     
 
  

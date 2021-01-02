@@ -10,6 +10,6 @@ Currently configured and tested only for CUDA 11.
 
 ## Tests
 
-Run `$ pytest .`
+Run `$ pipenv run pytest .`
 
 

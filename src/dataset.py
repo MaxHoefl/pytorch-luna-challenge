@@ -1,14 +1,21 @@
 import torch
 from torch.utils.data import Dataset
+import copy
 from preprocessing import getCandidateNoduleList
 from ct import Ct
 
 
 class LunaDataset(Dataset):
-    def __init__(self, data_dir):
+    def __init__(self, data_dir, series_uid=None, val_stride=0, is_val=None):
         super().__init__()
         self.data_dir = data_dir
-        self.candidate_nodules = getCandidateNoduleList(data_dir)
+        self.series_uid = series_uid
+        self.is_val = is_val
+        self.candidate_nodules = copy.copy(getCandidateNoduleList(data_dir))
+        if series_uid:
+            self.candidate_nodules = [
+                x for x in self.candidate_nodules if x.series_uid == series_uid
+            ]
 
     def __len__(self):
         return len(self.candidate_nodules)
