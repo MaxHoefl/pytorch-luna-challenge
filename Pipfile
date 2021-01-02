@@ -8,6 +8,7 @@ jupyterlab = "*"
 SimpleITK = "*"
 numpy = "*"
 diskcache = "*"
+matplotlib = "*"
 
 [dev-packages]
 pytest = "*"

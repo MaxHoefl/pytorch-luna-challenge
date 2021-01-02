@@ -16,6 +16,13 @@ class LunaDataset(Dataset):
             self.candidate_nodules = [
                 x for x in self.candidate_nodules if x.series_uid == series_uid
             ]
+        if is_val:
+            assert val_stride > 0, f"Provide a val_stride >0, got {val_stride}"
+            self.candidate_nodules = self.candidate_nodules[::val_stride]
+            assert self.candidate_nodules
+        elif val_stride:
+            del self.candidate_nodules[::val_stride]
+            assert self.candidate_nodules
 
     def __len__(self):
         return len(self.candidate_nodules)

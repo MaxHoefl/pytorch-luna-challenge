@@ -51,7 +51,6 @@ def getCandidateNoduleList(data_dir):
    nodules = []
    available_uids = getDownloadedSeriesUIDs(data_dir)
    annotations = mapSeriesUIDsToAnnotations(annotations_path)
-   print(available_uids)
    with open(candidates_path, 'r') as f:
        for row in list(csv.reader(f))[1:]:
            series_uid = row[0]
