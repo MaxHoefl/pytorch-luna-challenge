@@ -10,6 +10,11 @@ from torch.optim import SGD
 from model import LunaModel
 from dataset import LunaDataset
 import logging as log
+log.basicConfig(
+    level=log.INFO,
+    format= '[%(asctime)s] {%(pathname)s:%(lineno)d} %(levelname)s - %(message)s',
+    datefmt='%H:%M:%S'
+)
 
 
 DATA_DIR = os.path.join(
@@ -18,6 +23,10 @@ DATA_DIR = os.path.join(
 
 
 class LunaTrainingApp(object):
+    METRICS_LOSS_IDX = 2
+    METRICS_PREDS_IDX = 1
+    METRICS_LABELS_IDX = 0
+
     def __init__(self, sys_argv=None):
         if sys_argv is None:
             sys_argv = sys.argv[1:]
@@ -80,12 +89,12 @@ class LunaTrainingApp(object):
             num_batches=len(val_dl),
             batch_size=val_dl.batch_size
         )
-        for epoch_idx in range(1, self.cli_args.epochs + 1):
+        for epoch_idx in range(self.cli_args.epochs):
             log.info(f'Epoch {epoch_idx}')
             train_metrics = self.training_epoch(
                 epoch_idx, train_dl, train_metrics
             )
-            self.log_metrics(train_metrics)
+            self.log_epoch_metrics(train_metrics, epoch_idx)
 
     def init_metrics(self, num_epochs, num_batches, batch_size):
         num_metrics = 3 # label, pred, loss
@@ -107,8 +116,12 @@ class LunaTrainingApp(object):
             )
             loss.backward()
             self.optimizer.step()
-        if metrics:
+        if metrics is not None:
             return metrics.to('cpu')
+
+    def log_epoch_metrics(self, metrics, epoch_idx):
+        avg_loss = metrics[epoch_idx, :, :, self.METRICS_LOSS_IDX].mean()
+        log.info(f"epoch: {epoch_idx}, loss: {avg_loss}")
 
     def validation_epoch(self, epoch_idx, val_dl, metrics=None):
         with torch.no_grad():
@@ -121,7 +134,7 @@ class LunaTrainingApp(object):
                     val_dl.batch_size,
                     metrics
                 )
-            if metrics:
+            if metrics is not None:
                 return metrics.to('cpu')
 
     def compute_loss(self, epoch_idx, batch_idx, batch, batch_size, metrics=None):
@@ -133,7 +146,7 @@ class LunaTrainingApp(object):
         logits, preds = self.model(inputs)
         loss_fn = nn.CrossEntropyLoss(reduction='none')
         loss = loss_fn(logits, labels[:,1])
-        if metrics:
+        if metrics is not None:
             metrics[epoch_idx, batch_idx, start_idx:end_idx, 0] = \
                     labels[:, 1].detach()
             metrics[epoch_idx, batch_idx, start_idx:end_idx, 1] = \
@@ -152,6 +165,7 @@ class LunaTrainingApp(object):
         batch_size = self.cli_args.batch_size
         if self.use_cuda:
             batch_size *= torch.cuda.device_count()
+            print(f"BATCH_SIZE: {batch_size}")
         dl = DataLoader(
             ds,
             batch_size=batch_size,
