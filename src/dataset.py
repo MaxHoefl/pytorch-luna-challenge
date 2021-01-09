@@ -7,6 +7,11 @@ from ct import Ct
 
 
 class LunaDataset(Dataset):
+    INPUT_CHANNELS = 1
+    CROP_HEIGHT = 48
+    CROP_WIDTH = 48
+    CROP_DEPTH = 32
+
     def __init__(self, data_dir, series_uid=None, val_stride=0, is_val=None):
         super().__init__()
         self.data_dir = data_dir
@@ -30,7 +35,7 @@ class LunaDataset(Dataset):
 
     def __getitem__(self, idx):
         candidate = self.candidate_nodules[idx]
-        crop_width = (32, 48, 48)
+        crop_width = (self.CROP_DEPTH, self.CROP_HEIGHT, self.CROP_WIDTH)
         ct_scan = Ct(candidate.series_uid, self.data_dir)
         ct_crop, crop_center = \
                 ct_scan.cropCtAtXYZLocation(candidate.center_xyz, crop_width)
@@ -44,6 +49,4 @@ class LunaDataset(Dataset):
         ], dtype=torch.long)
 
         return ct_crop, target, candidate.series_uid, crop_center
-
-
 

@@ -48,6 +48,11 @@ class LunaTrainingApp(object):
             default=10,
             type=int
         )
+        parser.add_argument('--conv-channels',
+            help='Number of output channels for first convolution',
+            default=8,
+            type=int
+        )
         self.cli_args = parser.parse_args(sys_argv)
         if self.cli_args.val_stride < 0:
             self.cli_args.val_stride = None
@@ -65,29 +70,76 @@ class LunaTrainingApp(object):
         val_dl = self.init_dataloader(
                 mode='val',
                 val_stride=self.cli_args.val_stride)
+        train_metrics = self.init_metrics(
+            num_epochs=self.cli_args.epochs,
+            num_batches=len(train_dl),
+            batch_size=train_dl.batch_size
+        )
+        val_metrics = self.init_metrics(
+            num_epochs=self.cli_args.epochs,
+            num_batches=len(val_dl),
+            batch_size=val_dl.batch_size
+        )
         for epoch_idx in range(1, self.cli_args.epochs + 1):
             log.info(f'Epoch {epoch_idx}')
-            self.training_epoch(epoch_idx, train_dl)
+            train_metrics = self.training_epoch(
+                epoch_idx, train_dl, train_metrics
+            )
+            self.log_metrics(train_metrics)
 
-    def training_epoch(self, epoch_idx, train_dl):
+    def init_metrics(self, num_epochs, num_batches, batch_size):
+        num_metrics = 3 # label, pred, loss
+        return torch.zeros(
+            (num_epochs, num_batches, batch_size, num_metrics),
+            device=self.device
+        )
+
+    def training_epoch(self, epoch_idx, train_dl, metrics=None):
         self.model.train()
         for batch_idx, batch in enumerate(train_dl):
             self.optimizer.zero_grad()
             loss = self.compute_loss(
+                epoch_idx,
                 batch_idx,
                 batch,
-                train_dl.batch_size
+                train_dl.batch_size,
+                metrics
             )
             loss.backward()
             self.optimizer.step()
+        if metrics:
+            return metrics.to('cpu')
 
-    def compute_loss(self, batch_idx, batch, batch_size):
+    def validation_epoch(self, epoch_idx, val_dl, metrics=None):
+        with torch.no_grad():
+            self.model.eval()
+            for batch_idx, batch in enumerate(val_dl):
+                loss.self.compute_loss(
+                    epoch_idx,
+                    batch_idx,
+                    batch,
+                    val_dl.batch_size,
+                    metrics
+                )
+            if metrics:
+                return metrics.to('cpu')
+
+    def compute_loss(self, epoch_idx, batch_idx, batch, batch_size, metrics=None):
         inputs, labels, series_uids, centers = batch
+        start_idx = batch_idx * batch_size
+        end_idx = start_idx + batch_size
         inputs = inputs.to(self.device, non_blocking=True)
         labels = labels.to(self.device, non_blocking=True)
         logits, preds = self.model(inputs)
         loss_fn = nn.CrossEntropyLoss(reduction='none')
         loss = loss_fn(logits, labels[:,1])
+        if metrics:
+            metrics[epoch_idx, batch_idx, start_idx:end_idx, 0] = \
+                    labels[:, 1].detach()
+            metrics[epoch_idx, batch_idx, start_idx:end_idx, 1] = \
+                    preds[:, 1].detach() 
+            metrics[epoch_idx, batch_idx, start_idx:end_idx, 2] = \
+                    loss.detach()
         return loss.mean()
 
     def init_dataloader(self, mode='train', val_stride=10):
@@ -109,7 +161,13 @@ class LunaTrainingApp(object):
         return dl
 
     def init_model(self):
-        model = LunaModel()
+        model = LunaModel(
+            in_channels=LunaDataset.INPUT_CHANNELS,
+            conv_channels=self.cli_args.conv_channels,
+            depth=LunaDataset.CROP_DEPTH,
+            height=LunaDataset.CROP_HEIGHT,
+            width=LunaDataset.CROP_WIDTH
+        )
         if self.use_cuda:
             log.info(f'Using CUDA; {torch.cuda.device_count()} devices')
             if torch.cuda.device_count() > 1:
