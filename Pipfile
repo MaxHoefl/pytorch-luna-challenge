@@ -9,6 +9,7 @@ SimpleITK = "*"
 numpy = "*"
 diskcache = "*"
 matplotlib = "*"
+tqdm = "*"
 
 [dev-packages]
 pytest = "*"

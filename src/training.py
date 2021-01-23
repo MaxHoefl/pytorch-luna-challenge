@@ -1,25 +1,25 @@
 import argparse
 import sys
 import os
-import datetime 
-import logging as log
+import datetime
 import torch
 from torch import nn
 from torch.utils.data import DataLoader
 from torch.optim import SGD
 from model import LunaModel
 from dataset import LunaDataset
+from tqdm import tqdm
 import logging as log
+
 log.basicConfig(
     level=log.INFO,
-    format= '[%(asctime)s] {%(pathname)s:%(lineno)d} %(levelname)s - %(message)s',
+    format='[%(asctime)s] {%(pathname)s:%(lineno)d} %(levelname)s - %(message)s',
     datefmt='%H:%M:%S'
 )
 
-
 DATA_DIR = os.path.join(
-        os.path.dirname(os.path.dirname(__file__)),
-        'data-unversioned')
+    os.path.dirname(os.path.dirname(__file__)),
+    'data-unversioned')
 
 
 class LunaTrainingApp(object):
@@ -33,35 +33,35 @@ class LunaTrainingApp(object):
         log.info(f'Creating training app: {sys_argv}')
         parser = argparse.ArgumentParser()
         parser.add_argument('--num-workers',
-            help='Number of worker processes for background data loading',
-            default=1,
-            type=int
-        )
+                            help='Number of worker processes for background data loading',
+                            default=1,
+                            type=int
+                            )
         parser.add_argument('--data-dir',
-            help='Data directory',
-            default=DATA_DIR,
-            type=str
-        )
+                            help='Data directory',
+                            default=DATA_DIR,
+                            type=str
+                            )
         parser.add_argument('--batch-size',
-            help='Batch size',
-            default=32,
-            type=int
-        )
+                            help='Batch size',
+                            default=32,
+                            type=int
+                            )
         parser.add_argument('--epochs',
-            help='Number of epochs',
-            default=1,
-            type=int
-        )
+                            help='Number of epochs',
+                            default=1,
+                            type=int
+                            )
         parser.add_argument('--val-stride',
-            help='Multiples of which will be included in val dataset',
-            default=10,
-            type=int
-        )
+                            help='Multiples of which will be included in val dataset',
+                            default=10,
+                            type=int
+                            )
         parser.add_argument('--conv-channels',
-            help='Number of output channels for first convolution',
-            default=8,
-            type=int
-        )
+                            help='Number of output channels for first convolution',
+                            default=8,
+                            type=int
+                            )
         self.cli_args = parser.parse_args(sys_argv)
         if self.cli_args.val_stride < 0:
             self.cli_args.val_stride = None
@@ -74,11 +74,11 @@ class LunaTrainingApp(object):
     def main(self):
         log.info(f'Starting {type(self).__name__}, {self.cli_args}')
         train_dl = self.init_dataloader(
-                mode='train', 
-                val_stride=self.cli_args.val_stride)
+            mode='train',
+            val_stride=self.cli_args.val_stride)
         val_dl = self.init_dataloader(
-                mode='val',
-                val_stride=self.cli_args.val_stride)
+            mode='val',
+            val_stride=self.cli_args.val_stride)
         train_metrics = self.init_metrics(
             num_epochs=self.cli_args.epochs,
             num_batches=len(train_dl),
@@ -94,18 +94,23 @@ class LunaTrainingApp(object):
             train_metrics = self.training_epoch(
                 epoch_idx, train_dl, train_metrics
             )
-            self.log_epoch_metrics(train_metrics, epoch_idx)
+            val_metrics = self.validation_epoch(
+                epoch_idx, val_dl, val_metrics
+            )
+            self.log_epoch_metrics(train_metrics, epoch_idx, mode='train')
+            self.log_epoch_metrics(val_metrics, epoch_idx, mode='val')
 
     def init_metrics(self, num_epochs, num_batches, batch_size):
-        num_metrics = 3 # label, pred, loss
+        num_metrics = 3  # label, pred, loss
         return torch.zeros(
-            (num_epochs, num_batches, batch_size, num_metrics),
+            (num_epochs, num_batches, num_batches * batch_size, num_metrics),
             device=self.device
         )
 
     def training_epoch(self, epoch_idx, train_dl, metrics=None):
         self.model.train()
-        for batch_idx, batch in enumerate(train_dl):
+        batch_iter = tqdm(train_dl, postfix={'train-loss': 0})
+        for batch_idx, batch in enumerate(batch_iter):
             self.optimizer.zero_grad()
             loss = self.compute_loss(
                 epoch_idx,
@@ -116,24 +121,27 @@ class LunaTrainingApp(object):
             )
             loss.backward()
             self.optimizer.step()
+            batch_iter.set_postfix({'train-loss': loss.detach().item()})
         if metrics is not None:
             return metrics.to('cpu')
 
-    def log_epoch_metrics(self, metrics, epoch_idx):
+    def log_epoch_metrics(self, metrics, epoch_idx, mode):
         avg_loss = metrics[epoch_idx, :, :, self.METRICS_LOSS_IDX].mean()
-        log.info(f"epoch: {epoch_idx}, loss: {avg_loss}")
+        log.info(f"epoch: {epoch_idx}, {mode}-loss: {avg_loss}")
 
     def validation_epoch(self, epoch_idx, val_dl, metrics=None):
         with torch.no_grad():
             self.model.eval()
-            for batch_idx, batch in enumerate(val_dl):
-                loss.self.compute_loss(
+            batch_iter = tqdm(val_dl, postfix={'val-loss': 0})
+            for batch_idx, batch in enumerate(batch_iter):
+                loss = self.compute_loss(
                     epoch_idx,
                     batch_idx,
                     batch,
                     val_dl.batch_size,
                     metrics
                 )
+                batch_iter.set_postfix({'val-loss': loss.detach().item()})
             if metrics is not None:
                 return metrics.to('cpu')
 
@@ -145,14 +153,14 @@ class LunaTrainingApp(object):
         labels = labels.to(self.device, non_blocking=True)
         logits, preds = self.model(inputs)
         loss_fn = nn.CrossEntropyLoss(reduction='none')
-        loss = loss_fn(logits, labels[:,1])
+        loss = loss_fn(logits, labels[:, 1])
         if metrics is not None:
             metrics[epoch_idx, batch_idx, start_idx:end_idx, 0] = \
-                    labels[:, 1].detach()
+                labels[:, 1].detach()
             metrics[epoch_idx, batch_idx, start_idx:end_idx, 1] = \
-                    preds[:, 1].detach() 
+                preds[:, 1].detach()
             metrics[epoch_idx, batch_idx, start_idx:end_idx, 2] = \
-                    loss.detach()
+                loss.detach()
         return loss.mean()
 
     def init_dataloader(self, mode='train', val_stride=10):
