@@ -8,9 +8,12 @@ from ct import Ct
 
 class LunaDataset(Dataset):
     INPUT_CHANNELS = 1
-    CROP_HEIGHT = 48
-    CROP_WIDTH = 48
-    CROP_DEPTH = 32
+    #CROP_HEIGHT = 48
+    #CROP_WIDTH = 48
+    #CROP_DEPTH = 32
+    CROP_HEIGHT = 24
+    CROP_WIDTH = 24
+    CROP_DEPTH = 16
 
     def __init__(self, data_dir, series_uid=None, val_stride=0, is_val=None):
         super().__init__()

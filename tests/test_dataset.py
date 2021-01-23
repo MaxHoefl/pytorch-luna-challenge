@@ -5,7 +5,11 @@ from dataset import LunaDataset
 
 def test_dateset(luna_setup):
     ds = LunaDataset(luna_setup.data_dir)
-    assert ds[0][0].shape == (1, 32, 48, 48)
+    assert ds[0][0].shape == (
+            LunaDataset.INPUT_CHANNELS, 
+            LunaDataset.CROP_DEPTH, 
+            LunaDataset.CROP_HEIGHT, 
+            LunaDataset.CROP_WIDTH)
     assert len(ds) == 1
 
 
